@@ -1,0 +1,13 @@
+notebook
+tensorflow<2.11
+pillow
+panadas
+matplotlib<=3.7.0
+numpy
+scikit-learn
+librosa==0.9.2
+tqdm
+imageio
+imageio-ffmpeg
+pyyaml
+ipython
