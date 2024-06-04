@@ -1,0 +1,1 @@
+# wind_turbin_anomaly_detection
