@@ -163,3 +163,4 @@ cython_debug/
 
 # dataset
 wav_dataset/
+/.idea
