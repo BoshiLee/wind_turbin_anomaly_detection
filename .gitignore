@@ -163,5 +163,5 @@ cython_debug/
 
 # dataset
 wav_dataset/
-segmented_datasets/
+segmented_audio/
 /.idea
