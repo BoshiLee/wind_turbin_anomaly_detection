@@ -161,7 +161,8 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# dataset
+# wav_dataset
 wav_dataset/
+train_dataset/
 segmented_audio/
 /.idea
