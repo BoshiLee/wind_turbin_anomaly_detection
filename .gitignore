@@ -168,5 +168,6 @@ mel_spectrograms/
 segmented_audio/
 segment_images/
 one_microphone/
+mel_spectrograms/
 segmented_audio_anomaly/
 /.idea
