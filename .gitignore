@@ -164,6 +164,9 @@ cython_debug/
 # wav_dataset
 wav_dataset/
 train_dataset/
+mel_spectrograms/
 segmented_audio/
-one_microphone/*
+segment_images/
+one_microphone/
+segmented_audio_anomaly/
 /.idea
