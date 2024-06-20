@@ -169,5 +169,7 @@ segmented_audio/
 segment_images/
 one_microphone/
 mel_spectrograms/
+mean_spectrograms/
+soundcam_dataset/
 segmented_audio_anomaly/
 /.idea
