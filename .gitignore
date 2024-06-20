@@ -165,5 +165,5 @@ cython_debug/
 wav_dataset/
 train_dataset/
 segmented_audio/
-one_microphone/
+one_microphone/*
 /.idea
