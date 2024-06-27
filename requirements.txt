@@ -13,3 +13,4 @@ pyyaml
 ipython
 statsmodels
 PyWavelets
+pydot
