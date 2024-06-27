@@ -2,6 +2,7 @@ import os
 import librosa.display
 from tqdm import tqdm
 import numpy as np
+import soundfile as sf
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt
 import sys
@@ -48,11 +49,9 @@ def load_wav_files(directory, target_sr=16000, amplification_factor=80, trim_dur
                     y = loudness_normalize_audio(y)
                     y = amplify_audio(y, amplification_factor)
                     y = highpass_filter(y, sr=target_sr, cutoff=4096, order=5)
-                    y = convert_to_mel_spectrogram(y, n_fft=512, hop_length=256, n_mels=64, sr=target_sr)
 
-                    # remove wav_directory from root
                     path = root.split(os.path.sep)
-                    filename = f'{path[1]}_{file}'
+                    filename = f'{path[-1]}_{file}'
                     pbar.set_postfix(file=filename, )
                     wav_files.append((y, filename))
                 pbar.update(1)
@@ -94,6 +93,69 @@ def plot_mel_spectrogram(mel_spectrogram, hop_length=512, sr=16000, filename='',
     else:
         plt.close()
 
+def segment_audio(wav_file, sr=44100, segment_length=2, verbose=False):
+    """
+    Segment audio into clips of a specified length.
+
+    :param wav_file: Tuple containing the audio time series and file name
+    :param sr: Sample rate
+    :param segment_length: The desired length of each audio segment in seconds (default: 2)
+    :param verbose: Print additional information (default: False)
+    :return: A list of audio segments
+    """
+    # 載入音訊數據
+    y, name = wav_file
+
+    # 計算每個片段的樣本數
+    segment_samples = int(segment_length * sr)
+
+    # 切割音訊，每個片段長度固定為 segment_length 秒
+    segments = []
+    for start in range(0, len(y), segment_samples):
+        end = start + segment_samples
+        segment = y[start:end]
+
+        # 如果片段長度不足 segment_length 秒，則補零
+        if len(segment) < segment_samples:
+            segment = np.pad(segment, (0, segment_samples - len(segment)), mode='constant')
+
+        segments.append(segment)
+
+    if verbose:
+        print(f"Segmented audio into {len(segments)} clips of {segment_length} seconds each.")
+
+    return segments
+
+
+def segment_files_and_save(files, sr, segment_length=2, output_dir='output', output_anomaly_dir='output_anomaly'):
+    """
+    Segment multiple audio files and save the segments.
+
+    :param files: List of audio time series and file name tuples
+    :param sr: Sample rate
+    :param segment_length: The desired length of each audio segment in seconds (default: 2)
+    :param output_dir: Directory to save the normal segments
+    :param output_anomaly_dir: Directory to save the anomaly segments
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    if not os.path.exists(output_anomaly_dir):
+        os.makedirs(output_anomaly_dir)
+
+    total_files = len(files)
+    with tqdm(total=total_files, desc='Processing files', unit='file') as pbar:
+        for i, wav in enumerate(files):
+            segments = segment_audio(wav, sr=sr, segment_length=segment_length, verbose=False)
+            main_file_name = os.path.splitext(os.path.basename(wav[1]))[0]
+            pbar.set_postfix(file=f'{wav[1]}', segments=len(segments))
+            for j, segment in enumerate(segments):
+                file_name = f'{main_file_name}_segment_{j}.wav'
+                if 'anomaly' in wav[1]:
+                    sf.write(os.path.join(output_anomaly_dir, file_name), segment, sr)
+                else:
+                    sf.write(os.path.join(output_dir, file_name), segment, sr)
+            pbar.update(1)
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 1 :
@@ -103,7 +165,20 @@ if __name__ == '__main__':
         print("The provided directory does not exist.")
         sys.exit(1)
     sample_rate = sys.argv[2] if len(sys.argv) > 2 else 44100
+    if not sample_rate.isdigit():
+        print("Please provide a valid sample rate.")
+        sys.exit(1)
+    sample_rate = int(sample_rate)
     wav_files = load_wav_files(sys.argv[1], target_sr=sample_rate, amplification_factor=80, trim_duration=1)
-
-    for wav, filename in tqdm(wav_files, desc='Plotting mel spectrograms', unit='file'):
-        plot_mel_spectrogram(wav, hop_length=512, sr=sample_rate, filename=filename, save_only=True)
+    plot = sys.argv[3] if len(sys.argv) > 3 else False
+    if plot not in ['True', 'False', 'true', 'false']:
+        print("Please provide a valid value for the plot argument.")
+        sys.exit(1)
+    if not os.path.exists('images/mel_spectrograms'):
+        os.makedirs('images/mel_spectrograms')
+    if bool(plot):
+        for file in tqdm(wav_files, desc='Plotting mel spectrograms', unit='file'):
+            wav, filename = file
+            wav = convert_to_mel_spectrogram(wav, n_fft=512, hop_length=256, n_mels=128, sr=sample_rate)
+            plot_mel_spectrogram(wav, hop_length=256, sr=sample_rate, filename=filename, save_only=True)
+    segment_files_and_save(wav_files, sr=sample_rate, segment_length=2, output_dir='output', output_anomaly_dir='output_anomaly')
