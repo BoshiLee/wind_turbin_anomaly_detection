@@ -13,4 +13,6 @@ pyyaml
 ipython
 statsmodels
 PyWavelets
+geopandas == 0.9.0
 pydot
+folium

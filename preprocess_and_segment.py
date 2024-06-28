@@ -6,9 +6,12 @@ import soundfile as sf
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt
 import sys
+
+
 def normalize_audio(wav):
     # 標準化音頻信號
     return wav / np.max(np.abs(wav))
+
 
 def loudness_normalize_audio(wav, target_dB=-20.0):
     # 計算信號的RMS
@@ -24,6 +27,7 @@ def loudness_normalize_audio(wav, target_dB=-20.0):
 def amplify_audio(wav, factor):
     # 放大音頻信號
     return wav * factor
+
 
 def trim_audio(wav, sr, trim_duration=0.5):
     # 移除前後 trim_duration 秒
@@ -74,6 +78,7 @@ def highpass_filter(y, sr, cutoff=100, order=5):
     y_filtered = filtfilt(b, a, y)
     return y_filtered
 
+
 def convert_to_mel_spectrogram(y, n_fft, hop_length, n_mels, sr=16000):
     window = np.hamming(len(y))
     audio = y * window
@@ -81,6 +86,7 @@ def convert_to_mel_spectrogram(y, n_fft, hop_length, n_mels, sr=16000):
                                                      n_mels=n_mels, fmin=25)
     mel_spectrogram_db = librosa.power_to_db(mel_spectrogram, ref=np.max)
     return mel_spectrogram_db
+
 
 def plot_mel_spectrogram(mel_spectrogram, hop_length=512, sr=16000, filename='', save_only=False):
     plt.figure(figsize=(10, 5))
@@ -92,6 +98,7 @@ def plot_mel_spectrogram(mel_spectrogram, hop_length=512, sr=16000, filename='',
         plt.show()
     else:
         plt.close()
+
 
 def segment_audio(wav_file, sr=44100, segment_length=2, verbose=False):
     """
@@ -143,7 +150,7 @@ def segment_files_and_save(files, sr, segment_length=2, output_dir='output', out
         os.makedirs(output_anomaly_dir)
 
     total_files = len(files)
-    with tqdm(total=total_files, desc='Processing files', unit='file') as pbar:
+    with tqdm(total=total_files, desc='Segment files', unit='file') as pbar:
         for i, wav in enumerate(files):
             segments = segment_audio(wav, sr=sr, segment_length=segment_length, verbose=False)
             main_file_name = os.path.splitext(os.path.basename(wav[1]))[0]
@@ -158,7 +165,7 @@ def segment_files_and_save(files, sr, segment_length=2, output_dir='output', out
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 1 :
+    if len(sys.argv) < 1:
         print("Please provide the path to the directory containing the wav files.")
         sys.exit(1)
     if not os.path.exists(sys.argv[1]):
@@ -181,4 +188,5 @@ if __name__ == '__main__':
             wav, filename = file
             wav = convert_to_mel_spectrogram(wav, n_fft=512, hop_length=256, n_mels=128, sr=sample_rate)
             plot_mel_spectrogram(wav, hop_length=256, sr=sample_rate, filename=filename, save_only=True)
-    segment_files_and_save(wav_files, sr=sample_rate, segment_length=2, output_dir='output', output_anomaly_dir='output_anomaly')
+    segment_files_and_save(wav_files, sr=sample_rate, segment_length=2, output_dir='output',
+                           output_anomaly_dir='output_anomaly')
