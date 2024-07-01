@@ -1,5 +1,6 @@
 import os
 import librosa.display
+from dotenv import load_dotenv
 from tqdm import tqdm
 import numpy as np
 import soundfile as sf
@@ -70,7 +71,6 @@ def load_wav_files(directory, target_sr=16000, amplification_factor=80, trim_dur
                     if sr != target_sr:
                         y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
                     y = highpass_filter(y, sr=target_sr, cutoff=4096, order=5)
-                    y = hamming_window(y)
                     y = trim_audio(y, sr=target_sr, trim_duration=trim_duration)
                     y = loudness_normalize_audio(y)
                     y = amplify_audio(y, amplification_factor)
@@ -167,9 +167,10 @@ def segment_files_and_save(files, sr, segment_length=2, output_dir='output', out
             pbar.update(1)
 
 
-hop_length = 64
-n_mels = 128
-n_fft = 256
+load_dotenv()
+hop_length = int(os.getenv('hop_length'))
+n_mels = int(os.getenv('n_mels'))
+n_fft = int(os.getenv('n_fft'))
 
 if __name__ == '__main__':
     if len(sys.argv) < 1:
@@ -183,7 +184,7 @@ if __name__ == '__main__':
         print("Please provide a valid sample rate.")
         sys.exit(1)
     sample_rate = int(sample_rate)
-    wav_files = load_wav_files(sys.argv[1], target_sr=sample_rate, amplification_factor=80, trim_duration=1)
+    wav_files = load_wav_files(sys.argv[1], target_sr=sample_rate, amplification_factor=80, trim_duration=3)
     plot = sys.argv[3] if len(sys.argv) > 3 else False
     if plot not in ['True', 'False', 'true', 'false']:
         print("Please provide a valid value for the plot argument.")
