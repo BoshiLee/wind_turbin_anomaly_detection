@@ -7,6 +7,15 @@ import soundfile as sf
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt
 import sys
+import argparse
+
+load_dotenv()
+sample_rate = int(os.getenv('sample_rate'))
+hop_length = int(os.getenv('hop_length'))
+n_mels = int(os.getenv('n_mels'))
+n_fft = int(os.getenv('n_fft'))
+trim_duration = int(os.getenv('trim_duration'))
+segment_length = int(os.getenv('segment_length'))
 
 
 def normalize_audio(wav):
@@ -70,12 +79,9 @@ def load_wav_files(directory, target_sr=16000, amplification_factor=80, trim_dur
                     y, sr = librosa.load(file_path, sr=None)
                     if sr != target_sr:
                         y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
-                    y = highpass_filter(y, sr=target_sr, cutoff=4096, order=5)
-                    y = trim_audio(y, sr=target_sr, trim_duration=trim_duration)
-                    y = loudness_normalize_audio(y)
-                    y = amplify_audio(y, amplification_factor)
-                    y = normalize_audio(y)
-
+                    # 去除音頻兩端的靜音部分
+                    y = librosa.effects.trim(y, top_db=amplification_factor, hop_length=hop_length)[0]
+                    y = hamming_window(y)
                     path = root.split(os.path.sep)
                     filename = f'{path[-1]}_{file}'
                     pbar.set_postfix(file=filename, )
@@ -125,9 +131,9 @@ def segment_audio(wav_file, sr=44100, segment_length=2, verbose=False):
         end = start + segment_samples
         segment = y[start:end]
 
-        # 如果片段長度不足 segment_length 秒，則補零
+        # 如果片段長度不足 segment_length 秒，則跳過
         if len(segment) < segment_samples:
-            segment = np.pad(segment, (0, segment_samples - len(segment)), mode='constant')
+            continue
 
         segments.append(segment)
 
@@ -167,34 +173,26 @@ def segment_files_and_save(files, sr, segment_length=2, output_dir='output', out
             pbar.update(1)
 
 
-load_dotenv()
-hop_length = int(os.getenv('hop_length'))
-n_mels = int(os.getenv('n_mels'))
-n_fft = int(os.getenv('n_fft'))
 
 if __name__ == '__main__':
-    if len(sys.argv) < 1:
-        print("Please provide the path to the directory containing the wav files.")
-        sys.exit(1)
-    if not os.path.exists(sys.argv[1]):
+    parser = argparse.ArgumentParser(description="Process wav files and optionally plot mel spectrograms.")
+    parser.add_argument('directory', type=str, help="The path to the directory containing the wav files.")
+    parser.add_argument('--plot', type=str, choices=['true', 'false'], default='false', help="Whether to plot mel spectrograms. Accepts 'true' or 'false'.")
+    args = parser.parse_args()
+
+    if not os.path.exists(args.directory):
         print("The provided directory does not exist.")
         sys.exit(1)
-    sample_rate = sys.argv[2] if len(sys.argv) > 2 else 44100
-    if not sample_rate.isdigit():
-        print("Please provide a valid sample rate.")
-        sys.exit(1)
-    sample_rate = int(sample_rate)
-    wav_files = load_wav_files(sys.argv[1], target_sr=sample_rate, amplification_factor=80, trim_duration=3)
-    plot = sys.argv[3] if len(sys.argv) > 3 else False
-    if plot not in ['True', 'False', 'true', 'false']:
-        print("Please provide a valid value for the plot argument.")
-        sys.exit(1)
+
+    wav_files = load_wav_files(sys.argv[1], target_sr=sample_rate, amplification_factor=80, trim_duration=trim_duration)
+    plot = args.plot.lower() == 'true'
+
     if not os.path.exists('images/mel_spectrograms'):
         os.makedirs('images/mel_spectrograms')
-    if bool(plot):
+    if (plot):
         for file in tqdm(wav_files, desc='Plotting mel spectrograms', unit='file'):
             wav, filename = file
             wav = convert_to_mel_spectrogram(wav, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels, sr=sample_rate)
-            plot_mel_spectrogram(wav, hop_length=256, sr=sample_rate, filename=filename, save_only=True)
-    segment_files_and_save(wav_files, sr=sample_rate, segment_length=2, output_dir='output',
+            plot_mel_spectrogram(wav, hop_length=hop_length, sr=sample_rate, filename=filename, save_only=True)
+    segment_files_and_save(wav_files, sr=sample_rate, segment_length=segment_length, output_dir='output',
                            output_anomaly_dir='output_anomaly')
