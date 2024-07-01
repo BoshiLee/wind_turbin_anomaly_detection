@@ -10,6 +10,8 @@ import sys
 
 def normalize_audio(wav):
     # 標準化音頻信號
+    if np.max(np.abs(wav)) == 0:
+        return wav
     return wav / np.max(np.abs(wav))
 
 
@@ -28,6 +30,10 @@ def amplify_audio(wav, factor):
     # 放大音頻信號
     return wav * factor
 
+def hamming_window(y):
+    window = np.hamming(len(y))
+    wav = y * window
+    return wav
 
 def trim_audio(wav, sr, trim_duration=0.5):
     # 移除前後 trim_duration 秒
@@ -36,31 +42,6 @@ def trim_audio(wav, sr, trim_duration=0.5):
         return wav[trim_samples:-trim_samples]
     else:
         return wav  # 如果音頻長度不足以移除前後 trim_duration 秒，則不進行裁剪
-
-
-def load_wav_files(directory, target_sr=16000, amplification_factor=80, trim_duration=1):
-    wav_files = []
-    for root, dirs, files in os.walk(directory):
-        with tqdm(total=len(files), desc='Loading files', unit='file') as pbar:
-            for file in files:
-                if file.endswith(".wav") and file != 'all_channel.wav':
-                    file_path = os.path.join(root, file)
-                    y, sr = librosa.load(file_path, sr=None)
-                    if sr != target_sr:
-                        y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
-
-                    y = trim_audio(y, sr=target_sr, trim_duration=trim_duration)
-                    y = loudness_normalize_audio(y)
-                    y = amplify_audio(y, amplification_factor)
-                    y = highpass_filter(y, sr=target_sr, cutoff=4096, order=5)
-
-                    path = root.split(os.path.sep)
-                    filename = f'{path[-1]}_{file}'
-                    pbar.set_postfix(file=filename, )
-                    wav_files.append((y, filename))
-                pbar.update(1)
-    return wav_files
-
 
 def highpass_filter(y, sr, cutoff=100, order=5):
     """
@@ -78,11 +59,33 @@ def highpass_filter(y, sr, cutoff=100, order=5):
     y_filtered = filtfilt(b, a, y)
     return y_filtered
 
+def load_wav_files(directory, target_sr=16000, amplification_factor=80, trim_duration=1):
+    wav_files = []
+    for root, dirs, files in os.walk(directory):
+        with tqdm(total=len(files), desc='Loading files', unit='file') as pbar:
+            for file in files:
+                if file.endswith(".wav") and file != 'all_channel.wav':
+                    file_path = os.path.join(root, file)
+                    y, sr = librosa.load(file_path, sr=None)
+                    if sr != target_sr:
+                        y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
+                    y = highpass_filter(y, sr=target_sr, cutoff=4096, order=5)
+                    y = hamming_window(y)
+                    y = trim_audio(y, sr=target_sr, trim_duration=trim_duration)
+                    y = loudness_normalize_audio(y)
+                    y = amplify_audio(y, amplification_factor)
+                    y = normalize_audio(y)
+
+                    path = root.split(os.path.sep)
+                    filename = f'{path[-1]}_{file}'
+                    pbar.set_postfix(file=filename, )
+                    wav_files.append((y, filename))
+                pbar.update(1)
+    return wav_files
+
 
 def convert_to_mel_spectrogram(y, n_fft, hop_length, n_mels, sr=16000):
-    window = np.hamming(len(y))
-    audio = y * window
-    mel_spectrogram = librosa.feature.melspectrogram(y=audio, sr=sr, n_fft=n_fft, hop_length=hop_length,
+    mel_spectrogram = librosa.feature.melspectrogram(y=y, sr=sr, n_fft=n_fft, hop_length=hop_length,
                                                      n_mels=n_mels, fmin=25)
     mel_spectrogram_db = librosa.power_to_db(mel_spectrogram, ref=np.max)
     return mel_spectrogram_db
@@ -164,6 +167,10 @@ def segment_files_and_save(files, sr, segment_length=2, output_dir='output', out
             pbar.update(1)
 
 
+hop_length = 64
+n_mels = 128
+n_fft = 256
+
 if __name__ == '__main__':
     if len(sys.argv) < 1:
         print("Please provide the path to the directory containing the wav files.")
@@ -186,7 +193,7 @@ if __name__ == '__main__':
     if bool(plot):
         for file in tqdm(wav_files, desc='Plotting mel spectrograms', unit='file'):
             wav, filename = file
-            wav = convert_to_mel_spectrogram(wav, n_fft=512, hop_length=256, n_mels=128, sr=sample_rate)
+            wav = convert_to_mel_spectrogram(wav, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels, sr=sample_rate)
             plot_mel_spectrogram(wav, hop_length=256, sr=sample_rate, filename=filename, save_only=True)
     segment_files_and_save(wav_files, sr=sample_rate, segment_length=2, output_dir='output',
                            output_anomaly_dir='output_anomaly')

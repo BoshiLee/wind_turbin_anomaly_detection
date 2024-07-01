@@ -16,3 +16,4 @@ PyWavelets
 geopandas == 0.9.0
 pydot
 folium
+python-dotenv
