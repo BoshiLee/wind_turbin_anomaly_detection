@@ -178,6 +178,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Process wav files and optionally plot mel spectrograms.")
     parser.add_argument('directory', type=str, help="The path to the directory containing the wav files.")
     parser.add_argument('--plot', type=str, choices=['true', 'false'], default='false', help="Whether to plot mel spectrograms. Accepts 'true' or 'false'.")
+    parser.add_argument('--process', type=str, choices=['true', 'false'], default='true', help="Whether to process the wav files. Accepts 'true' or 'false'.")
     args = parser.parse_args()
 
     if not os.path.exists(args.directory):
@@ -186,6 +187,7 @@ if __name__ == '__main__':
 
     wav_files = load_wav_files(sys.argv[1], target_sr=sample_rate, amplification_factor=80, trim_duration=trim_duration)
     plot = args.plot.lower() == 'true'
+    process = args.process.lower() == 'true'
 
     if not os.path.exists('images/mel_spectrograms'):
         os.makedirs('images/mel_spectrograms')
@@ -194,5 +196,6 @@ if __name__ == '__main__':
             wav, filename = file
             wav = convert_to_mel_spectrogram(wav, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels, sr=sample_rate)
             plot_mel_spectrogram(wav, hop_length=hop_length, sr=sample_rate, filename=filename, save_only=True)
-    segment_files_and_save(wav_files, sr=sample_rate, segment_length=segment_length, output_dir='output',
-                           output_anomaly_dir='output_anomaly')
+    if (process):
+        segment_files_and_save(wav_files, sr=sample_rate, segment_length=segment_length, output_dir='output',
+                               output_anomaly_dir='output_anomaly')
