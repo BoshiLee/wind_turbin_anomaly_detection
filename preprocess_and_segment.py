@@ -69,6 +69,22 @@ def highpass_filter(y, sr, cutoff=100, order=5):
     y_filtered = filtfilt(b, a, y)
     return y_filtered
 
+def lowpass_filter(y, sr, cutoff=100, order=5):
+    """
+    Apply a low-pass filter to the audio signal to remove high-frequency noise like hissing.
+
+    :param wav_data: Audio time series and file name tuple
+    :param sr: Sample rate
+    :param cutoff: Cutoff frequency for the low-pass filter
+    :param order: Order of the filter
+    :return: Filtered audio time series
+    """
+    nyquist = 0.5 * sr
+    normal_cutoff = cutoff / nyquist
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    y_filtered = filtfilt(b, a, y)
+    return y_filtered
+
 def load_wav_files(directory, target_sr=16000, amplification_factor=80, trim_duration=1):
     wav_files = []
     for root, dirs, files in os.walk(directory):
@@ -81,13 +97,18 @@ def load_wav_files(directory, target_sr=16000, amplification_factor=80, trim_dur
                         y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
                     # 去除音頻兩端的靜音部分
                     y = librosa.effects.trim(y, top_db=amplification_factor, hop_length=hop_length)[0]
-                    y = hamming_window(y)
+                    # y = hamming_window(y)
                     path = root.split(os.path.sep)
                     filename = f'{path[-1]}_{file}'
                     pbar.set_postfix(file=filename, )
                     wav_files.append((y, filename))
                 pbar.update(1)
     return wav_files
+
+def convert_to_spectrogram(audio, n_fft, hop_length):
+    spectrogram = librosa.stft(audio, n_fft=n_fft, hop_length=hop_length)
+    spectrogram_db = librosa.amplitude_to_db(abs(spectrogram))
+    return spectrogram_db
 
 
 def convert_to_mel_spectrogram(y, n_fft, hop_length, n_mels, sr=16000):
@@ -96,13 +117,20 @@ def convert_to_mel_spectrogram(y, n_fft, hop_length, n_mels, sr=16000):
     mel_spectrogram_db = librosa.power_to_db(mel_spectrogram, ref=np.max)
     return mel_spectrogram_db
 
+def plot_spectrogram(spectrogram, target_sample_rate, hop_length, filename='', save_dir='images/mel_spectrograms'):
+    plt.figure(figsize=(10, 5))
+    librosa.display.specshow(spectrogram, sr=target_sample_rate, hop_length=hop_length, x_axis='time', y_axis='hz', cmap='BuPu')
+    plt.colorbar(format='%+2.0f dB')
+    plt.title(f'Spectrogram: {filename}')
+    plt.savefig(f'{save_dir}/{filename}_spectrogram.png')
+    plt.close()
 
-def plot_mel_spectrogram(mel_spectrogram, hop_length=512, sr=16000, filename='', save_only=False):
+def plot_mel_spectrogram(mel_spectrogram, hop_length=512, sr=16000, filename='', save_only=False, save_dir='images/mel_spectrograms'):
     plt.figure(figsize=(10, 5))
     librosa.display.specshow(mel_spectrogram, x_axis='time', y_axis='mel', sr=sr, hop_length=hop_length)
     plt.colorbar(format='%+2.0f dB')
     plt.title(f'Mel spectrogram: {filename}')
-    plt.savefig(f'images/mel_spectrograms/{filename}_mel_spectrogram.png')
+    plt.savefig(f'{save_dir}/{filename}_mel_spectrogram.png')
     if not save_only:
         plt.show()
     else:
@@ -178,7 +206,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Process wav files and optionally plot mel spectrograms.")
     parser.add_argument('directory', type=str, help="The path to the directory containing the wav files.")
     parser.add_argument('--plot', type=str, choices=['true', 'false'], default='false', help="Whether to plot mel spectrograms. Accepts 'true' or 'false'.")
+    parser.add_argument('image_dir', type=str, help="The path to the directory to save the mel spectrogram images.")
     parser.add_argument('--process', type=str, choices=['true', 'false'], default='true', help="Whether to process the wav files. Accepts 'true' or 'false'.")
+    parser.add_argument('output_dir', type=str, help="The path to the directory to save the processed wav")
     args = parser.parse_args()
 
     if not os.path.exists(args.directory):
@@ -188,14 +218,16 @@ if __name__ == '__main__':
     wav_files = load_wav_files(sys.argv[1], target_sr=sample_rate, amplification_factor=80, trim_duration=trim_duration)
     plot = args.plot.lower() == 'true'
     process = args.process.lower() == 'true'
+    sound_dir = f'audio/{args.output_dir}'
+    image_dir = f'images/{args.image_dir}'
 
-    if not os.path.exists('images/mel_spectrograms'):
-        os.makedirs('images/mel_spectrograms')
+    if not os.path.exists(image_dir):
+        os.makedirs(image_dir)
     if (plot):
         for file in tqdm(wav_files, desc='Plotting mel spectrograms', unit='file'):
             wav, filename = file
-            wav = convert_to_mel_spectrogram(wav, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels, sr=sample_rate)
-            plot_mel_spectrogram(wav, hop_length=hop_length, sr=sample_rate, filename=filename, save_only=True)
+            wav = convert_to_spectrogram(wav, n_fft=n_fft, hop_length=hop_length)
+            plot_spectrogram(wav, target_sample_rate=sample_rate, hop_length=hop_length, filename=filename, save_dir=image_dir)
     if (process):
-        segment_files_and_save(wav_files, sr=sample_rate, segment_length=segment_length, output_dir='output',
-                               output_anomaly_dir='output_anomaly')
+        segment_files_and_save(wav_files, sr=sample_rate, segment_length=segment_length, output_dir=sound_dir,
+                               output_anomaly_dir=sound_dir + '_anomaly')
