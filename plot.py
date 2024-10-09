@@ -106,7 +106,12 @@ def stft(x, n_fft, hop_length, window):
                                              strides=(x.itemsize, hop_length*x.itemsize))
     return rfft(frames * window[:, None], n=n_fft, axis=0)
 
-def plot_mel_spectrogram(audio_data, sample_rate, filename=None, save_dir='images/mel_spectrograms'):
+def plot_mel_spectrogram(audio_data, sample_rate, filename=None, save_dir='images/mel_spectrograms', output_anomaly_dir='images/mel_spectrograms_anomaly'):
+
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    if not os.path.exists(output_anomaly_dir):
+        os.makedirs(output_anomaly_dir)
 
     # 確保音頻數據是單聲道的
     if len(audio_data.shape) > 1:
@@ -164,7 +169,10 @@ def plot_mel_spectrogram(audio_data, sample_rate, filename=None, save_dir='image
 
     plt.tight_layout()
     plt.title(f'Mel Spectrogram of Audio Signal (n_fft = {n_fft}, n_mels = {n_mels})')
-    plt.savefig(f'{save_dir}/{filename}_mel_spectrogram.png')
+    if 'anomaly' in filename:
+        plt.savefig(f'{output_anomaly_dir}/{filename}_mel_spectrogram.png')
+    else:
+        plt.savefig(f'{save_dir}/{filename}_mel_spectrogram.png')
 
 # def plot_mel_spectrogram(audio_data, sample_rate, filename=None, save_dir='images/mel_spectrograms'):
 #     # 確保音頻數據是單聲道的
@@ -302,12 +310,10 @@ if __name__ == '__main__':
     sound_dir = f'audio/{args.output_dir}'
     image_dir = f'images/{args.image_dir}'
 
-    if not os.path.exists(image_dir):
-        os.makedirs(image_dir)
     if (plot):
         for file in tqdm(wav_files, desc='Plotting mel spectrograms', unit='file'):
             wav, filename = file
-            plot_mel_spectrogram(wav, sample_rate=sample_rate, filename=filename, save_dir=image_dir)
+            plot_mel_spectrogram(wav, sample_rate=sample_rate, filename=filename, save_dir=image_dir, output_anomaly_dir=image_dir + '_anomaly')
     if (process):
         segment_files_and_save(wav_files, sr=sample_rate, segment_length=segment_length, output_dir=sound_dir,
                                output_anomaly_dir=sound_dir + '_anomaly')
