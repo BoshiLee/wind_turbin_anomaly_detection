@@ -165,6 +165,7 @@ cython_debug/
 wav_dataset/
 train_dataset/
 images/
+audio/
 mel_spectrograms/
 segmented_audio/
 segment_images/

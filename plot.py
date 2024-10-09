@@ -106,56 +106,8 @@ def stft(x, n_fft, hop_length, window):
                                              strides=(x.itemsize, hop_length*x.itemsize))
     return rfft(frames * window[:, None], n=n_fft, axis=0)
 
-def convert_to_spectrogram(audio_data, sample_rate, filename=None, save_dir='images/stft_spectrograms'):
-    # 確保音頻數據是單聲道的
-    if len(audio_data.shape) > 1:
-        audio_data = audio_data[:, 0]
-
-    # 設置STFT參數
-    n_fft = sample_rate // 5
-    hop_length = n_fft // 4  # 75% 重疊
-
-    # 應用漢寧窗
-    window = windows.hann(n_fft, sym=False)
-
-    # 執行STFT
-    stft_result = stft(audio_data, n_fft, hop_length, window)
-
-    # 計算頻譜圖（幅度譜）
-    spectrogram = np.abs(stft_result)
-
-    # 轉換為分貝刻度
-    spectrogram_db = 20 * np.log10(spectrogram + 1e-10)
-
-    # 創建時間軸和頻率軸
-    time = np.arange(spectrogram.shape[1]) * hop_length / sample_rate
-    freq = np.linspace(0, sample_rate / 2, spectrogram.shape[0])
-
-    # 繪製頻譜圖
-    plt.figure(figsize=(15, 10))
-    plt.imshow(spectrogram_db, aspect='auto', origin='lower',
-               extent=[time.min(), time.max(), freq.min(), freq.max()],
-               cmap='jet')
-
-    plt.colorbar(label='amplitude (dB)')
-    plt.xlabel('time (sec)')
-    plt.ylabel('frequency (Hz)')
-    plt.title(f'Spectrogram of Audio Signal (n_fft = {n_fft})')
-
-    # 設置y軸為對數刻度
-    plt.yscale('log')
-    plt.ylim(20, sample_rate / 2)  # 限制y軸範圍從20Hz到奈奎斯特頻率
-
-    # 設置y軸刻度
-    plt.yticks([20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000],
-               ['20', '50', '100', '200', '500', '1k', '2k', '5k', '10k', '20k'])
-
-    plt.tight_layout()
-    plt.savefig(f'{save_dir}/{filename}_spectrogram.png')
-    plt.close()
-
-
 def plot_mel_spectrogram(audio_data, sample_rate, filename=None, save_dir='images/mel_spectrograms'):
+
     # 確保音頻數據是單聲道的
     if len(audio_data.shape) > 1:
         audio_data = audio_data[:, 0]
@@ -204,8 +156,67 @@ def plot_mel_spectrogram(audio_data, sample_rate, filename=None, save_dir='image
     plt.colorbar(label='amplitude (dB)')
     plt.xlabel('time (sec)')
     plt.ylabel('mel frequency')
+
+    # 設置y軸刻度
+    mel_ticks = librosa.mel_frequencies(n_mels=n_mels, fmin=0, fmax=sample_rate / 2)
+    plt.yticks(np.arange(0, n_mels, n_mels // 10),
+               [f'{int(f)}' for f in mel_ticks[::n_mels // 10]])
+
+    plt.tight_layout()
     plt.title(f'Mel Spectrogram of Audio Signal (n_fft = {n_fft}, n_mels = {n_mels})')
     plt.savefig(f'{save_dir}/{filename}_mel_spectrogram.png')
+
+# def plot_mel_spectrogram(audio_data, sample_rate, filename=None, save_dir='images/mel_spectrograms'):
+#     # 確保音頻數據是單聲道的
+#     if len(audio_data.shape) > 1:
+#         audio_data = audio_data[:, 0]
+#
+#     # 將音頻數據轉換為浮點型並歸一化
+#     if audio_data.dtype.kind in 'iu':
+#         audio_data = audio_data.astype(np.float32) / np.iinfo(audio_data.dtype).max
+#     elif audio_data.dtype.kind == 'f':
+#         audio_data = audio_data.astype(np.float32)
+#         max_value = np.max(np.abs(audio_data))
+#         if max_value > 1.0:
+#             audio_data /= max_value
+#
+#     # 設置STFT參數
+#     n_fft = sample_rate // 5
+#     hop_length = n_fft // 4  # 75% 重疊
+#
+#     # 應用漢寧窗
+#     window = windows.hann(n_fft, sym=False)
+#
+#     # 執行STFT
+#     stft_result = stft(audio_data, n_fft, hop_length, window)
+#
+#     # 計算功率譜
+#     power_spectrum = np.abs(stft_result) ** 2
+#
+#     # 創建梅爾濾波器組
+#     n_mels = 128
+#     mel_filterbank = librosa.filters.mel(sr=sample_rate, n_fft=n_fft, n_mels=n_mels)
+#
+#     # 將功率譜轉換為梅爾頻譜
+#     mel_spectrogram = np.dot(mel_filterbank, power_spectrum)
+#
+#     # 轉換為分貝刻度
+#     mel_spectrogram_db = librosa.power_to_db(mel_spectrogram, ref=np.max)
+#
+#     # 創建時間軸
+#     time = np.arange(mel_spectrogram.shape[1]) * hop_length / sample_rate
+#
+#     # 繪製梅爾頻譜圖
+#     plt.figure(figsize=(15, 10))
+#     plt.imshow(mel_spectrogram_db, aspect='auto', origin='lower',
+#                extent=[time.min(), time.max(), 0, n_mels],
+#                cmap='jet')
+#
+#     plt.colorbar(label='amplitude (dB)')
+#     plt.xlabel('time (sec)')
+#     plt.ylabel('mel frequency')
+#     plt.title(f'Mel Spectrogram of Audio Signal (n_fft = {n_fft}, n_mels = {n_mels})')
+#     plt.savefig(f'{save_dir}/{filename}_mel_spectrogram.png')
 
 def segment_audio(wav_file, sr=44100, segment_length=2, verbose=False):
     """
