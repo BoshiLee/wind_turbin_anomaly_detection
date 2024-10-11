@@ -4,6 +4,8 @@ import librosa
 import librosa.display
 import matplotlib.pyplot as plt
 from scipy.signal import windows, stft
+from sympy import true
+
 
 def compute_mel_spectrogram(audio_data, sample_rate, n_mels=128):
     # 確保音頻數據是單聲道的
@@ -20,14 +22,14 @@ def compute_mel_spectrogram(audio_data, sample_rate, n_mels=128):
             audio_data /= max_value
 
     # 設置STFT參數
-    n_fft = sample_rate // 5
-    hop_length = n_fft // 4  # 75% 重疊
+    n_fft = int(sample_rate // 5)
+    hop_length = int(n_fft // 4)  # 75% 重疊
 
     # 應用漢寧窗
     window = windows.hann(n_fft, sym=False)
 
     # 執行STFT
-    stft_result = stft(audio_data, n_fft, hop_length, window)
+    f, t, stft_result = stft(audio_data, nperseg=n_fft, noverlap=hop_length, window=window)
 
     # 計算力譜譜
     power_spectrum = np.abs(stft_result) ** 2
@@ -43,7 +45,7 @@ def compute_mel_spectrogram(audio_data, sample_rate, n_mels=128):
 
     return mel_spectrogram_db, hop_length
 
-def plot_mel_spectrogram(mel_spectrogram_db, hop_length, sample_rate, filename=None, save_dir='images/mel_spectrograms', output_anomaly_dir='images/mel_spectrograms_anomaly'):
+def plot_mel_spectrogram(mel_spectrogram_db, hop_length, sample_rate, filename=None, save_file=True, save_dir='images/mel_spectrograms', output_anomaly_dir='images/mel_spectrograms_anomaly'):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     if not os.path.exists(output_anomaly_dir):
@@ -69,8 +71,12 @@ def plot_mel_spectrogram(mel_spectrogram_db, hop_length, sample_rate, filename=N
 
     plt.tight_layout()
     plt.title(f'Mel Spectrogram of Audio Signal (n_mels = {mel_spectrogram_db.shape[0]})')
-    if 'anomaly' in filename:
-        plt.savefig(f'{output_anomaly_dir}/{filename}_mel_spectrogram.png')
+    if save_file:
+
+        if 'anomaly' in filename:
+            plt.savefig(f'{output_anomaly_dir}/{filename}_mel_spectrogram.png')
+        else:
+            plt.savefig(f'{save_dir}/{filename}_mel_spectrogram.png')
     else:
-        plt.savefig(f'{save_dir}/{filename}_mel_spectrogram.png')
+        plt.show()
     plt.close()
