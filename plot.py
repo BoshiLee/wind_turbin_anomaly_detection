@@ -2,15 +2,12 @@ import os
 import librosa.display
 from dotenv import load_dotenv
 from tqdm import tqdm
-import numpy as np
 import soundfile as sf
-import matplotlib.pyplot as plt
-from scipy.signal import butter, filtfilt
+
 import sys
 import argparse
-from scipy.fft import rfft
-from scipy.signal import windows
-from conver_mel_spectrogram import compute_mel_spectrogram, plot_mel_spectrogram as ploting_mel
+
+from conver_mel_spectrogram import compute_mel_spectrogram, plot_mel_spectrogram
 
 load_dotenv()
 sample_rate = int(os.getenv('sample_rate'))
@@ -18,72 +15,37 @@ n_mels = int(os.getenv('n_mels'))
 segment_length = int(os.getenv('segment_length'))
 
 
-def normalize_audio(wav):
-    # 標準化音頻信號
-    if np.max(np.abs(wav)) == 0:
-        return wav
-    return wav / np.max(np.abs(wav))
-
-
-def loudness_normalize_audio(wav, target_dB=-20.0):
-    # 計算信號的RMS
-    rms = np.sqrt(np.mean(np.square(wav)))
-    # 防止RMS為零的情況
-    if rms == 0:
-        rms = 1e-10  # 使用一個非常小的值來避免除以零
-    # 計算響度校正因子
-    scalar = 10 ** (target_dB / 20) / rms
-    return wav * scalar
-
-
-def amplify_audio(wav, factor):
-    # 放大音頻信號
-    return wav * factor
-
-def hamming_window(y):
-    window = np.hamming(len(y))
-    wav = y * window
-    return wav
-
-def trim_audio(wav, sr, trim_duration=0.5):
-    # 移除前後 trim_duration 秒
-    trim_samples = int(trim_duration * sr)
-    if len(wav) > 2 * trim_samples:
-        return wav[trim_samples:-trim_samples]
-    else:
-        return wav  # 如果音頻長度不足以移除前後 trim_duration 秒，則不進行裁剪
-
-def highpass_filter(y, sr, cutoff=100, order=5):
-    """
-    Apply a high-pass filter to the audio signal to remove low-frequency noise like wind noise.
-
-    :param wav_data: Audio time series and file name tuple
-    :param sr: Sample rate
-    :param cutoff: Cutoff frequency for the high-pass filter
-    :param order: Order of the filter
-    :return: Filtered audio time series
-    """
-    nyquist = 0.5 * sr
-    normal_cutoff = cutoff / nyquist
-    b, a = butter(order, normal_cutoff, btype='high', analog=False)
-    y_filtered = filtfilt(b, a, y)
-    return y_filtered
-
-def lowpass_filter(y, sr, cutoff=100, order=5):
-    """
-    Apply a low-pass filter to the audio signal to remove high-frequency noise like hissing.
-
-    :param wav_data: Audio time series and file name tuple
-    :param sr: Sample rate
-    :param cutoff: Cutoff frequency for the low-pass filter
-    :param order: Order of the filter
-    :return: Filtered audio time series
-    """
-    nyquist = 0.5 * sr
-    normal_cutoff = cutoff / nyquist
-    b, a = butter(order, normal_cutoff, btype='low', analog=False)
-    y_filtered = filtfilt(b, a, y)
-    return y_filtered
+# def highpass_filter(y, sr, cutoff=100, order=5):
+#     """
+#     Apply a high-pass filter to the audio signal to remove low-frequency noise like wind noise.
+#
+#     :param wav_data: Audio time series and file name tuple
+#     :param sr: Sample rate
+#     :param cutoff: Cutoff frequency for the high-pass filter
+#     :param order: Order of the filter
+#     :return: Filtered audio time series
+#     """
+#     nyquist = 0.5 * sr
+#     normal_cutoff = cutoff / nyquist
+#     b, a = butter(order, normal_cutoff, btype='high', analog=False)
+#     y_filtered = filtfilt(b, a, y)
+#     return y_filtered
+#
+# def lowpass_filter(y, sr, cutoff=100, order=5):
+#     """
+#     Apply a low-pass filter to the audio signal to remove high-frequency noise like hissing.
+#
+#     :param wav_data: Audio time series and file name tuple
+#     :param sr: Sample rate
+#     :param cutoff: Cutoff frequency for the low-pass filter
+#     :param order: Order of the filter
+#     :return: Filtered audio time series
+#     """
+#     nyquist = 0.5 * sr
+#     normal_cutoff = cutoff / nyquist
+#     b, a = butter(order, normal_cutoff, btype='low', analog=False)
+#     y_filtered = filtfilt(b, a, y)
+#     return y_filtered
 
 def load_wav_files(directory, target_sr=16000):
     wav_files = []
@@ -102,15 +64,17 @@ def load_wav_files(directory, target_sr=16000):
                 pbar.update(1)
     return wav_files
 
-def stft(x, n_fft, hop_length, window):
-    num_frames = 1 + (len(x) - n_fft) // hop_length
-    frames = np.lib.stride_tricks.as_strided(x, shape=(n_fft, num_frames),
-                                             strides=(x.itemsize, hop_length*x.itemsize))
-    return rfft(frames * window[:, None], n=n_fft, axis=0)
 
-def plot_mel_spectrogram(audio_data, sample_rate, filename=None, save_dir='images/mel_spectrograms', output_anomaly_dir='images/mel_spectrograms_anomaly'):
-    mel_spectrogram_db, hop_length = compute_mel_spectrogram(audio_data, sample_rate)
-    ploting_mel(mel_spectrogram_db, hop_length, sample_rate, filename, save_dir, output_anomaly_dir)
+def convert_and_plot_mel_spectrogram(audio_data, sample_rate, filename=None, save_dir='images/mel_spectrograms',
+                                     output_anomaly_dir='images/mel_spectrograms_anomaly'):
+    mel_spectrogram_db, hop_length = compute_mel_spectrogram(audio_data, sample_rate=sample_rate, n_mels=n_mels, verbose=False)
+    plot_mel_spectrogram(mel_spectrogram_db, hop_length=hop_length,
+                         sample_rate=sample_rate,
+                         filename=filename,
+                         camp='coolwarm',
+                         save_file=True,
+                         save_dir=save_dir,
+                         output_anomaly_dir=output_anomaly_dir)
 
 
 def segment_audio(wav_file, sr=44100, segment_length=2, verbose=False):
@@ -177,13 +141,14 @@ def segment_files_and_save(files, sr, segment_length=2, output_dir='output', out
             pbar.update(1)
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Process wav files and optionally plot mel spectrograms.")
     parser.add_argument('directory', type=str, help="The path to the directory containing the wav files.")
-    parser.add_argument('--plot', type=str, choices=['true', 'false'], default='false', help="Whether to plot mel spectrograms. Accepts 'true' or 'false'.")
+    parser.add_argument('--plot', type=str, choices=['true', 'false'], default='false',
+                        help="Whether to plot mel spectrograms. Accepts 'true' or 'false'.")
     parser.add_argument('image_dir', type=str, help="The path to the directory to save the mel spectrogram images.")
-    parser.add_argument('--process', type=str, choices=['true', 'false'], default='true', help="Whether to process the wav files. Accepts 'true' or 'false'.")
+    parser.add_argument('--process', type=str, choices=['true', 'false'], default='true',
+                        help="Whether to process the wav files. Accepts 'true' or 'false'.")
     parser.add_argument('output_dir', type=str, help="The path to the directory to save the processed wav")
     args = parser.parse_args()
 
@@ -200,7 +165,8 @@ if __name__ == '__main__':
     if (plot):
         for file in tqdm(wav_files, desc='Plotting mel spectrograms', unit='file'):
             wav, filename = file
-            plot_mel_spectrogram(wav, sample_rate=sample_rate, filename=filename, save_dir=image_dir, output_anomaly_dir=image_dir + '_anomaly')
+            convert_and_plot_mel_spectrogram(wav, sample_rate=sample_rate, filename=filename, save_dir=image_dir,
+                                             output_anomaly_dir=image_dir + '_anomaly')
     if (process):
         segment_files_and_save(wav_files, sr=sample_rate, segment_length=segment_length, output_dir=sound_dir,
                                output_anomaly_dir=sound_dir + '_anomaly')

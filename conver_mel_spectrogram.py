@@ -7,7 +7,7 @@ from scipy.signal import windows, stft
 from sympy import true
 
 
-def compute_mel_spectrogram(audio_data, sample_rate, n_mels=128):
+def compute_mel_spectrogram(audio_data, sample_rate, n_mels=128, verbose=False):
     # 確保音頻數據是單聲道的
     if len(audio_data.shape) > 1:
         audio_data = audio_data[:, 0]
@@ -31,21 +31,26 @@ def compute_mel_spectrogram(audio_data, sample_rate, n_mels=128):
     # 執行STFT
     f, t, stft_result = stft(audio_data, nperseg=n_fft, noverlap=hop_length, window=window)
 
-    # 計算力譜譜
-    power_spectrum = np.abs(stft_result) ** 2
-
-    # 創建梅爾濾波器組
-    mel_filterbank = librosa.filters.mel(sr=sample_rate, n_fft=n_fft, n_mels=n_mels)
-
-    # 將力譜轉換為梅爾頻譜
-    mel_spectrogram = np.dot(mel_filterbank, power_spectrum)
+    mel_spectrogram = librosa.feature.melspectrogram(y=audio_data, sr=sample_rate, n_fft=n_fft, hop_length=hop_length,
+                                                     window='hann',
+                                                     n_mels=n_mels)
 
     # 轉換為分貝刻度
     mel_spectrogram_db = librosa.power_to_db(mel_spectrogram, ref=np.max)
 
+    if verbose:
+        print(f"STFT窗口大小: {n_fft}")
+        print(f"音頻採樣率: {sample_rate} Hz")
+        print(f"STFT重疊: {hop_length}")
+        print(f"時間分辨率: {hop_length / sample_rate:.3f} 秒")
+        print(f"頻率分辨率: {sample_rate / n_fft:.2f} Hz")
+        print(f"音頻長度: {len(audio_data) / sample_rate:.2f} 秒")
+
     return mel_spectrogram_db, hop_length
 
-def plot_mel_spectrogram(mel_spectrogram_db, hop_length, sample_rate, filename=None, save_file=True, save_dir='images/mel_spectrograms', output_anomaly_dir='images/mel_spectrograms_anomaly'):
+
+def plot_mel_spectrogram(mel_spectrogram_db, hop_length, sample_rate, filename=None, save_file=True,
+                         save_dir='images/mel_spectrograms', output_anomaly_dir='images/mel_spectrograms_anomaly', camp='coolwarm'):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     if not os.path.exists(output_anomaly_dir):
@@ -58,11 +63,13 @@ def plot_mel_spectrogram(mel_spectrogram_db, hop_length, sample_rate, filename=N
     plt.figure(figsize=(15, 10))
     plt.imshow(mel_spectrogram_db, aspect='auto', origin='lower',
                extent=[time.min(), time.max(), 0, mel_spectrogram_db.shape[0]],
-               cmap='jet')
+               cmap=camp)
 
     plt.colorbar(label='amplitude (dB)')
     plt.xlabel('time (sec)')
     plt.ylabel('mel frequency')
+
+    plt.xticks(np.arange(0, time.max(), 1))
 
     # 設置y軸刻度
     mel_ticks = librosa.mel_frequencies(n_mels=mel_spectrogram_db.shape[0], fmin=0, fmax=sample_rate / 2)
@@ -72,11 +79,11 @@ def plot_mel_spectrogram(mel_spectrogram_db, hop_length, sample_rate, filename=N
     plt.tight_layout()
     plt.title(f'Mel Spectrogram of Audio Signal (n_mels = {mel_spectrogram_db.shape[0]})')
     if save_file:
-
         if 'anomaly' in filename:
             plt.savefig(f'{output_anomaly_dir}/{filename}_mel_spectrogram.png')
         else:
             plt.savefig(f'{save_dir}/{filename}_mel_spectrogram.png')
+        plt.close()
     else:
         plt.show()
-    plt.close()
+
