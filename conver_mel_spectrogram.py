@@ -7,7 +7,7 @@ from scipy.signal import windows, stft
 from sympy import true
 
 
-def compute_mel_spectrogram(audio_data, sample_rate, n_mels=128, verbose=False):
+def compute_mel_spectrogram(audio_data, sample_rate, n_mels=128, n_fft=2048, hop_length=512, verbose=False):
     # 確保音頻數據是單聲道的
     if len(audio_data.shape) > 1:
         audio_data = audio_data[:, 0]
@@ -22,16 +22,15 @@ def compute_mel_spectrogram(audio_data, sample_rate, n_mels=128, verbose=False):
             audio_data /= max_value
 
     # 設置STFT參數
-    n_fft = int(sample_rate // 5)
-    hop_length = int(n_fft // 4)  # 75% 重疊
+    n_fft = n_fft if n_fft else int(sample_rate // 5)
+    hop_length = hop_length if hop_length else n_fft // 4
 
     # 應用漢寧窗
     window = windows.hann(n_fft, sym=False)
 
-    # 執行STFT
-    f, t, stft_result = stft(audio_data, nperseg=n_fft, noverlap=hop_length, window=window)
-
-    mel_spectrogram = librosa.feature.melspectrogram(y=audio_data, sr=sample_rate, n_fft=n_fft, hop_length=hop_length,
+    mel_spectrogram = librosa.feature.melspectrogram(y=audio_data, sr=sample_rate,
+                                                     n_fft=n_fft,
+                                                     hop_length=hop_length,
                                                      window='hann',
                                                      n_mels=n_mels)
 
