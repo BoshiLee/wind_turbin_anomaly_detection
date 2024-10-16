@@ -3,8 +3,7 @@ import numpy as np
 import librosa
 import librosa.display
 import matplotlib.pyplot as plt
-from scipy.signal import windows, stft
-from sympy import true
+from scipy.signal import windows, stft, butter, sosfilt
 
 
 def compute_mel_spectrogram(audio_data, sample_rate, n_mels=128, n_fft=2048, hop_length=512, verbose=False):
@@ -87,7 +86,41 @@ def plot_mel_spectrogram(mel_spectrogram_db, hop_length, sample_rate, filename=N
         plt.show()
 
 
-def compute_stft_spectrogram(audio_data, sample_rate, n_fft, hop_length, verbose=False):
+def high_pass_filter(audio_data, sample_rate, cutoff_freq=300, order=5):
+    """
+    應用高通濾波器過濾音頻數據
+
+    參數:
+    audio_data : ndarray
+        要過濾的音頻數據，通常為一維的 numpy 陣列
+    sample_rate : int
+        音頻的採樣率（例如 25600 Hz）
+    cutoff_freq : int, optional
+        高通濾波器的截止頻率，默認為 300 Hz
+    order : int, optional
+        巴特沃斯濾波器的階數，默認為 5
+
+    返回:
+    filtered_audio : ndarray
+        經過高通濾波器處理後的音頻數據
+    """
+
+    # 計算 Nyquist 頻率 (採樣率的一半)
+    nyquist = 0.5 * sample_rate
+
+    # 正規化截止頻率 (相對於 Nyquist 頻率)
+    normal_cutoff = cutoff_freq / nyquist
+
+    # 設計高通濾波器
+    sos = butter(order, normal_cutoff, btype='highpass', fs=sample_rate, output='sos')
+
+    # 濾波處理音頻數據
+    filtered_signal = sosfilt(sos, audio_data)
+
+    return filtered_signal
+
+
+def compute_stft_spectrogram(audio_data, sample_rate, n_fft, hop_length=None, verbose=False):
     """
     計算音頻的STFT頻譜圖
 
@@ -121,8 +154,10 @@ def compute_stft_spectrogram(audio_data, sample_rate, n_fft, hop_length, verbose
     # 應用漢寧窗
     window = windows.hann(n_fft, sym=False)
 
+    filtered_audio = high_pass_filter(audio_data, sample_rate, cutoff_freq=300, order=5)
+
     # 執行STFT
-    f, t, stft_result = stft(audio_data, fs=sample_rate, nperseg=n_fft, noverlap=n_fft - hop_length, window=window)
+    f, t, stft_result = stft(filtered_audio, fs=sample_rate, nperseg=n_fft, noverlap=n_fft - hop_length, window=window)
 
     # 計算頻譜圖（幅度譜）
     spectrogram = np.abs(stft_result)
