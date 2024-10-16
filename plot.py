@@ -7,7 +7,8 @@ import soundfile as sf
 import sys
 import argparse
 
-from conver_mel_spectrogram import compute_mel_spectrogram, plot_mel_spectrogram
+from conver_mel_spectrogram import compute_mel_spectrogram, plot_mel_spectrogram, compute_stft_spectrogram, \
+    plot_stft_spectrogram
 
 load_dotenv()
 sample_rate = int(os.getenv('sample_rate'))
@@ -75,6 +76,17 @@ def convert_and_plot_mel_spectrogram(audio_data, sample_rate, filename=None, sav
                          save_file=True,
                          save_dir=save_dir,
                          output_anomaly_dir=output_anomaly_dir)
+
+def convert_and_plot_stft_spectrogram(audio_data, sample_rate, filename=None, save_dir='images/stft_spectrograms',
+                                        output_anomaly_dir='images/stft_spectrograms_anomaly'):
+        stft_spectrogram_db, hop_length = compute_stft_spectrogram(audio_data, sample_rate=sample_rate, verbose=False)
+        plot_stft_spectrogram(stft_spectrogram_db, hop_length=hop_length,
+                            sample_rate=sample_rate,
+                            filename=filename,
+                            camp='jet',
+                            save_file=True,
+                            save_dir=save_dir,
+                            output_anomaly_dir=output_anomaly_dir)
 
 
 def segment_audio(wav_file, sr=44100, segment_length=2, verbose=False):
@@ -160,13 +172,16 @@ if __name__ == '__main__':
     plot = args.plot.lower() == 'true'
     process = args.process.lower() == 'true'
     sound_dir = f'audio/{args.output_dir}'
-    image_dir = f'images/{args.image_dir}'
+    image_dir = f'images/stft/{args.image_dir}'
 
     if (plot):
         for file in tqdm(wav_files, desc='Plotting mel spectrograms', unit='file'):
             wav, filename = file
-            convert_and_plot_mel_spectrogram(wav, sample_rate=sample_rate, filename=filename, save_dir=image_dir,
-                                             output_anomaly_dir=image_dir + '_anomaly')
+            # convert_and_plot_mel_spectrogram(wav, sample_rate=sample_rate, filename=filename, save_dir=image_dir,
+            #                                  output_anomaly_dir=image_dir + '_anomaly')
+
+            convert_and_plot_stft_spectrogram(wav, sample_rate=sample_rate, filename=filename, save_dir=image_dir,
+                                                output_anomaly_dir=image_dir + '_anomaly')
     if (process):
         segment_files_and_save(wav_files, sr=sample_rate, segment_length=segment_length, output_dir=sound_dir,
                                output_anomaly_dir=sound_dir + '_anomaly')

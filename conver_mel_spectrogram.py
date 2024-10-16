@@ -49,7 +49,7 @@ def compute_mel_spectrogram(audio_data, sample_rate, n_mels=128, n_fft=2048, hop
 
 
 def plot_mel_spectrogram(mel_spectrogram_db, hop_length, sample_rate, filename=None, save_file=True,
-                         save_dir='images/mel_spectrograms', output_anomaly_dir='images/mel_spectrograms_anomaly', camp='coolwarm'):
+                         save_dir='images/mel_spectrograms', output_anomaly_dir='images/mel_spectrograms_anomaly', camp='jet'):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     if not os.path.exists(output_anomaly_dir):
@@ -86,3 +86,82 @@ def plot_mel_spectrogram(mel_spectrogram_db, hop_length, sample_rate, filename=N
     else:
         plt.show()
 
+
+def compute_stft_spectrogram(audio_data, sample_rate,  n_fft=2048, hop_length=512, verbose=False):
+    # 確保音頻數據是單聲道的
+    # 確保音頻數據是單聲道的
+    if len(audio_data.shape) > 1:
+        audio_data = audio_data[:, 0]
+
+    # 設置STFT參數
+    n_fft = n_fft if n_fft else int(sample_rate // 5)
+    hop_length = hop_length if hop_length else n_fft // 4
+
+    # 應用漢寧窗
+    window = windows.hann(n_fft, sym=False)
+
+    # 執行STFT
+    f, t, stft_result = stft(audio_data, nperseg=n_fft, noverlap=hop_length, window=window)
+
+    # 計算頻譜圖（幅度譜）
+    spectrogram = np.abs(stft_result)
+
+    # 轉換為分貝刻度
+    spectrogram_db = 20 * np.log10(spectrogram + 1e-10)
+    if verbose:
+        print(f"STFT窗口大小: {n_fft}")
+        print(f"音頻採樣率: {sample_rate} Hz")
+        print(f"STFT重疊: {hop_length}")
+        print(f"時間分辨率: {hop_length / sample_rate:.3f} 秒")
+        print(f"頻率分辨率: {sample_rate / n_fft:.2f} Hz")
+        print(f"音頻長度: {len(audio_data) / sample_rate:.2f} 秒")
+
+    return spectrogram, hop_length
+
+
+def plot_stft_spectrogram(spectrogram, hop_length, sample_rate, n_fft=2048, filename=None, save_file=True,
+                          save_dir='images/stft_spectrograms', output_anomaly_dir='images/stft_spectrograms_anomaly', camp='jet'):
+
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    if not os.path.exists(output_anomaly_dir):
+        os.makedirs(output_anomaly_dir)
+
+    # 轉換為分貝刻度
+    spectrogram_db = 20 * np.log10(spectrogram + 1e-10)
+
+    # 創建時間軸和頻率軸
+    time = np.arange(spectrogram.shape[1]) * hop_length / sample_rate
+    freq = np.linspace(0, sample_rate / 2, spectrogram.shape[0])
+
+
+    # 繪製頻譜圖
+    plt.figure(figsize=(15, 10))
+    plt.imshow(spectrogram_db, aspect='auto', origin='lower',
+               extent=[time.min(), time.max(), freq.min(), freq.max()],
+               cmap=camp)
+
+    plt.colorbar(label='amplitude (dB)')
+    plt.xlabel('time (sec)')
+    plt.ylabel('frequency (Hz)')
+    plt.title(f'Spectrogram of Audio Signal (n_fft = {n_fft})')
+
+    # 設置y軸為對數刻度
+    plt.yscale('log')
+    plt.ylim(20, sample_rate / 2)  # 限制y軸範圍從20Hz到奈奎斯特頻率
+
+    # 設置y軸刻度
+    plt.yticks([20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000],
+               ['20', '50', '100', '200', '500', '1k', '2k', '5k', '10k', '20k'])
+
+    plt.tight_layout()
+
+    if save_file:
+        if 'anomaly' in filename:
+            plt.savefig(f'{output_anomaly_dir}/{filename}_stft_spectrogram.png')
+        else:
+            plt.savefig(f'{save_dir}/{filename}_stft_spectrogram.png')
+        plt.close()
+
+    else:
+        plt.show()
